@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>2026 中美节假日日历</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #111418;
+      --panel: #1b2027;
+      --text: #f4f6f8;
+      --muted: #9aa4af;
+      --line: #2b333d;
+      --cn: #ff6b6b;
+      --cn-bg: #3a1f22;
+      --us: #5aa9ff;
+      --us-bg: #1d2c40;
+      font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      display: grid;
+      place-items: start center;
+      padding: 28px;
+    }
+    main { width: min(1080px, 100%); }
+    header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+    h1 { margin: 0; font-size: 26px; font-weight: 650; }
+    .legend { display: flex; gap: 16px; font-size: 13px; color: var(--muted); }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .dot { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+    .dot.cn { background: var(--cn); }
+    .dot.us { background: var(--us); }
+    .dot.both { background: linear-gradient(90deg, var(--cn) 50%, var(--us) 50%); }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+    }
+    .month {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 14px;
+    }
+    .month h2 { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
+    .dow, .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; text-align: center; }
+    .dow div { font-size: 11px; color: var(--muted); padding-bottom: 4px; }
+    .days div { font-size: 12px; padding: 5px 0; border-radius: 6px; color: var(--text); }
+    .days .cn { background: var(--cn-bg); color: var(--cn); font-weight: 600; }
+    .days .us { background: var(--us-bg); color: var(--us); font-weight: 600; }
+    .days .both { background: linear-gradient(90deg, var(--cn-bg) 50%, var(--us-bg) 50%); font-weight: 600; }
+    .days .empty { background: transparent; }
+    .list {
+      margin-top: 22px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px 18px;
+    }
+    .list h2 { margin: 0 0 12px; font-size: 16px; font-weight: 600; }
+    .list ul { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 28px; }
+    .list li { padding: 5px 0; font-size: 13px; display: flex; gap: 10px; break-inside: avoid; }
+    .list .date { color: var(--muted); min-width: 52px; }
+    .tag-cn { color: var(--cn); }
+    .tag-us { color: var(--us); }
+    footer { margin-top: 16px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>2026 · 中美节假日日历</h1>
+      <div class="legend">
+        <span><i class="dot cn"></i>中国</span>
+        <span><i class="dot us"></i>美国</span>
+        <span><i class="dot both"></i>两国同日</span>
+      </div>
+    </header>
+    <div class="grid" id="grid"></div>
+
+    <div class="list">
+      <h2>节假日清单</h2>
+      <ul id="list"></ul>
+    </div>
+
+    <footer>
+      仅标注各节日主日期。中国春节、国庆等实际为连休假期；美国 7/4 落在周六，联邦机构 7/3（周五）补休。<br>
+      两国同日：1/1 元旦・New Year’s Day ；6/19 端午节・Juneteenth。中国节气（芒种、夏至等）不计为节假日。
+    </footer>
+  </main>
+
+  <script>
+    const monthNames = ['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'];
+    const dow = ['一','二','三','四','五','六','日'];
+    // key "month-day" (month 0-based) -> [type, label]
+    const holidays = {
+      '0-1':  ['both', '元旦 · New Year’s Day'],
+      '0-19': ['us',   'Martin Luther King Jr. Day'],
+      '1-16': ['us',   'Presidents’ Day'],
+      '1-17': ['cn',   '春节（马年）'],
+      '3-5':  ['cn',   '清明节'],
+      '4-1':  ['cn',   '劳动节'],
+      '4-25': ['us',   'Memorial Day'],
+      '5-19': ['both', '端午节 · Juneteenth'],
+      '6-4':  ['us',   'Independence Day'],
+      '8-7':  ['us',   'Labor Day'],
+      '8-25': ['cn',   '中秋节'],
+      '9-1':  ['cn',   '国庆节'],
+      '9-12': ['us',   'Columbus Day'],
+      '10-11':['us',   'Veterans Day'],
+      '10-26':['us',   'Thanksgiving'],
+      '11-25':['us',   'Christmas Day'],
+    };
+
+    const grid = document.getElementById('grid');
+    for (let m = 0; m < 12; m++) {
+      const card = document.createElement('div');
+      card.className = 'month';
+      card.innerHTML = '<h2>' + monthNames[m] + '</h2>';
+      const dowRow = document.createElement('div');
+      dowRow.className = 'dow';
+      dow.forEach(d => { const e = document.createElement('div'); e.textContent = d; dowRow.appendChild(e); });
+      card.appendChild(dowRow);
+      const days = document.createElement('div');
+      days.className = 'days';
+      const first = (new Date(2026, m, 1).getDay() + 6) % 7;
+      const dim = new Date(2026, m + 1, 0).getDate();
+      for (let i = 0; i < first; i++) { const e = document.createElement('div'); e.className = 'empty'; days.appendChild(e); }
+      for (let d = 1; d <= dim; d++) {
+        const e = document.createElement('div');
+        const h = holidays[m + '-' + d];
+        if (h) { e.className = h[0]; e.title = h[1]; }
+        e.textContent = d;
+        days.appendChild(e);
+      }
+      card.appendChild(days);
+      grid.appendChild(card);
+    }
+
+    const list = document.getElementById('list');
+    Object.keys(holidays)
+      .sort((a, b) => { const [am, ad] = a.split('-').map(Number); const [bm, bd] = b.split('-').map(Number); return am - bm || ad - bd; })
+      .forEach(k => {
+        const [m, d] = k.split('-').map(Number);
+        const [type, label] = holidays[k];
+        const li = document.createElement('li');
+        const cls = type === 'cn' ? 'tag-cn' : type === 'us' ? 'tag-us' : '';
+        const flag = type === 'cn' ? '🇨🇳' : type === 'us' ? '🇺🇸' : '🇨🇳🇺🇸';
+        li.innerHTML = '<span class="date">' + (m + 1) + '/' + d + '</span><span class="' + cls + '">' + flag + ' ' + label + '</span>';
+        list.appendChild(li);
+      });
+  </script>
+</body>
+</html>
